@@ -1,18 +1,5 @@
 package main
 
-//type easy_type string
-//
-////json解析器的七种类型
-//const (
-//	EASY_NULL   easy_type = "EASY_NULL"
-//	EASY_FALSE            = "EASY_FALSE"
-//	EASY_TRUE             = "EASY_TRUE"
-//	EASY_NUMBER           = "EASY_NUMBER"
-//	EASY_STRING           = "EASY_STRING"
-//	EASY_ARRAY            = "EASY_ARRAY"
-//	EASY_OBJECT           = "EASY_OBJECT"
-//)
-
 //json解析器的七种类型
 const (
 	EASY_NULL = iota
@@ -27,6 +14,9 @@ const (
 //json树的节点
 type Easy_value struct {
 	vType int
+	num   float64
+	str   []byte
+	len   int
 }
 
 //解析后的返回值
@@ -35,4 +25,8 @@ const (
 	EASY_PARSE_EXPECT_VALUE
 	EASY_PARSE_INVALID_VALUE
 	EASY_PARSE_ROOT_NOT_SINGULAR
+	EASY_PARSE_NUMBER_TOO_BIG
+	EASY_PARSE_MISS_QUOTATION_MARK
+	EASY_PARSE_INVALID_STRING_ESCAPE
+	EASY_PARSE_INVALID_STRING_CHAR
 )
