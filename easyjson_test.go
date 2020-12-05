@@ -37,6 +37,10 @@ func TestParseString(t *testing.T) {
 	testString("Hello", "\"Hello\"")
 	testString("Hello\nWorld", "\"Hello\\nWorld\"")
 	testString("\" \\ / \b \f \n \r \t", "\"\\\" \\\\ \\/ \\b \\f \\n \\r \\t\"")
+	testString("\x24", "\"\\u0024\"")
+	testString("\xC2\xA2", "\"\\u00A2\"")
+	testString("\xF0\x9D\x84\x9E", "\"\\uD834\\uDD1E\"")
+	testString("\xF0\x9D\x84\x9E", "\"\\ud834\\udd1e\"")
 }
 
 func TestParseMissingQuetationMark(t *testing.T) {
@@ -54,6 +58,30 @@ func TestParseInvalidStringEscape(t *testing.T) {
 func TestParseInvalidStringChar(t *testing.T) {
 	ParseExpectValue(EASY_PARSE_INVALID_STRING_CHAR, "\"\x01\"", EASY_NULL)
 	ParseExpectValue(EASY_PARSE_INVALID_STRING_CHAR, "\"\x1F\"", EASY_NULL)
+}
+
+func TestParseInvalidUnicodeHex(t *testing.T) {
+	ParseExpectValue(EASY_PARSE_INVALID_UNICODE_HEX, "\"\\u\"", EASY_NULL)
+	ParseExpectValue(EASY_PARSE_INVALID_UNICODE_HEX, "\"\\u0\"", EASY_NULL)
+	ParseExpectValue(EASY_PARSE_INVALID_UNICODE_HEX, "\"\\u01\"", EASY_NULL)
+	ParseExpectValue(EASY_PARSE_INVALID_UNICODE_HEX, "\"\\u012\"", EASY_NULL)
+	ParseExpectValue(EASY_PARSE_INVALID_UNICODE_HEX, "\"\\u/000\"", EASY_NULL)
+	ParseExpectValue(EASY_PARSE_INVALID_UNICODE_HEX, "\"\\uG000\"", EASY_NULL)
+	ParseExpectValue(EASY_PARSE_INVALID_UNICODE_HEX, "\"\\u0/00\"", EASY_NULL)
+	ParseExpectValue(EASY_PARSE_INVALID_UNICODE_HEX, "\"\\u0G00\"", EASY_NULL)
+	ParseExpectValue(EASY_PARSE_INVALID_UNICODE_HEX, "\"\\u00/0\"", EASY_NULL)
+	ParseExpectValue(EASY_PARSE_INVALID_UNICODE_HEX, "\"\\u00G0\"", EASY_NULL)
+	ParseExpectValue(EASY_PARSE_INVALID_UNICODE_HEX, "\"\\u000/\"", EASY_NULL)
+	ParseExpectValue(EASY_PARSE_INVALID_UNICODE_HEX, "\"\\u000G\"", EASY_NULL)
+	ParseExpectValue(EASY_PARSE_INVALID_UNICODE_HEX, "\"\\u 123\"", EASY_NULL)
+}
+
+func TestParseInvalidUnicodeSurrogate(t *testing.T) {
+	ParseExpectValue(EASY_PARSE_INVALID_UNICODE_SURROGATE, "\"\\uD800\"", EASY_NULL)
+	ParseExpectValue(EASY_PARSE_INVALID_UNICODE_SURROGATE, "\"\\uDBFF\"", EASY_NULL)
+	ParseExpectValue(EASY_PARSE_INVALID_UNICODE_SURROGATE, "\"\\uD800\\\\\"", EASY_NULL)
+	ParseExpectValue(EASY_PARSE_INVALID_UNICODE_SURROGATE, "\"\\uD800\\uDBFF\"", EASY_NULL)
+	ParseExpectValue(EASY_PARSE_INVALID_UNICODE_SURROGATE, "\"\\uD800\\uE000\"", EASY_NULL)
 }
 
 func testString(expect string, json string) {

@@ -105,6 +105,38 @@ func EasyParseString(c *easyContext, value *Easy_value) int {
 				EasyContextPushChar(c, '\r')
 			case 't':
 				EasyContextPushChar(c, '\t')
+			case 'u':
+				ok, u := EasyParseHex4(c, i)
+				if !ok {
+					return EASY_PARSE_INVALID_UNICODE_HEX
+				}
+				i += 4 //指针往后移动4格
+
+				//判断是否要继续解析，因为有可能还有一个低代理项（也就是有连续两个/uxxxx/uxxxx）
+				if u >= 0xD800 && u <= 0xDBFF {
+					i++
+					if c.json[i] != '\\' {
+						return EASY_PARSE_INVALID_UNICODE_SURROGATE
+					}
+					i++
+					if c.json[i] != 'u' {
+						return EASY_PARSE_INVALID_UNICODE_SURROGATE
+					}
+					i++
+					ok2, u2 := EasyParseHex4(c, i-1)
+					if !ok2 {
+						return EASY_PARSE_INVALID_UNICODE_HEX
+					}
+					if u2 < 0xDC00 || u2 > 0xDFFF {
+						return EASY_PARSE_INVALID_UNICODE_SURROGATE
+					}
+					u = (((u - 0xD800) << 10) | (u2 - 0xDC00)) + 0x10000 //计算unicode码点
+
+					//todo: 想想指针应该可以处理得更好
+					i += 3
+				}
+				EasyParseUtf8(c, u)
+
 			default:
 				return EASY_PARSE_INVALID_STRING_ESCAPE
 			}
@@ -117,6 +149,33 @@ func EasyParseString(c *easyContext, value *Easy_value) int {
 		i++
 	}
 	return EASY_PARSE_MISS_QUOTATION_MARK
+}
+
+func EasyParseUtf8(c *easyContext, u int64) {
+	if u <= 0x7f {
+		EasyContextPushChar(c, byte(u))
+	} else if u <= 0x7FF {
+		EasyContextPushChar(c, byte(0xc0|((u>>6)&0xff)))
+		EasyContextPushChar(c, byte(0x80|(u&0x3f)))
+	} else if u <= 0xFFFF {
+		EasyContextPushChar(c, byte(0xe0|((u>>12)&0xff)))
+		EasyContextPushChar(c, byte(0x80|((u>>6)&0x3f)))
+		EasyContextPushChar(c, byte(0x80|(u&0x3f)))
+	} else if u <= 0x10FFFF {
+		EasyContextPushChar(c, byte(0xf0|((u>>18)&0xff)))
+		EasyContextPushChar(c, byte(0x80|((u>>12)&0x3f)))
+		EasyContextPushChar(c, byte(0x80|((u>>6)&0x3f)))
+		EasyContextPushChar(c, byte(0x80|u&0x3f))
+	}
+}
+
+func EasyParseHex4(c *easyContext, index int) (bool, int64) {
+	part := c.json[index+1 : index+5]
+	i, err := strconv.ParseInt(string(part), 16, 64)
+	if err != nil {
+		return false, 0
+	}
+	return true, i
 }
 
 func EasyParseNum(c *easyContext, value *Easy_value) int {
