@@ -17,6 +17,7 @@ type Easy_value struct {
 	num   float64
 	str   []byte
 	len   int
+	e     []Easy_value
 }
 
 //解析后的返回值
@@ -31,4 +32,5 @@ const (
 	EASY_PARSE_INVALID_STRING_CHAR
 	EASY_PARSE_INVALID_UNICODE_HEX
 	EASY_PARSE_INVALID_UNICODE_SURROGATE
+	EASY_PARSE_MISS_COMMA_OR_SQUARE_BRACKET
 )

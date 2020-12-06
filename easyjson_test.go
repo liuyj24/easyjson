@@ -30,6 +30,31 @@ func expectEQString(expect string, actual string) {
 	expectEQ(expect == actual, expect, actual, "%s")
 }
 
+//----- 测试数组 -----
+
+func TestParseArray(t *testing.T) {
+	var v Easy_value
+	expectEQInt(EASY_PARSE_OK, EasyParse(&v, "[ null , false , true , 123 , \"abc\" ]"))
+	expectEQInt(EASY_ARRAY, v.vType)
+	expectEQInt(EASY_NULL, v.e[0].vType)
+	expectEQInt(EASY_FALSE, v.e[1].vType)
+	expectEQInt(EASY_TRUE, v.e[2].vType)
+	expectEQInt(EASY_NUMBER, v.e[3].vType)
+	expectEQString("abc", string(v.e[4].str))
+
+	var v2 Easy_value
+	expectEQInt(EASY_PARSE_OK, EasyParse(&v2, "[ [ ] , [ 0 ] , [ 0 , 1 ] , [ 0 , 1 , 2 ] ]"))
+	expectEQInt(EASY_ARRAY, v2.e[0].vType)
+	expectEQInt(3, len(v2.e[3].e))
+}
+
+func TestParseMissCommaOrSquareBracket(t *testing.T) {
+	ParseExpectValue(EASY_PARSE_MISS_COMMA_OR_SQUARE_BRACKET, "[1", EASY_NULL)
+	ParseExpectValue(EASY_PARSE_MISS_COMMA_OR_SQUARE_BRACKET, "[1}", EASY_NULL)
+	ParseExpectValue(EASY_PARSE_MISS_COMMA_OR_SQUARE_BRACKET, "[1 2", EASY_NULL)
+	ParseExpectValue(EASY_PARSE_MISS_COMMA_OR_SQUARE_BRACKET, "[[]", EASY_NULL)
+}
+
 //----- 测试字符串 -----
 
 func TestParseString(t *testing.T) {
@@ -94,6 +119,7 @@ func testString(expect string, json string) {
 //----- 测试数字 -----
 
 func TestParseNum(t *testing.T) {
+	testNumber(123, "123")
 	testNumber(0.0, "0")
 	testNumber(0.0, "-0")
 	testNumber(0.0, "-0.0")

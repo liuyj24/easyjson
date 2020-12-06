@@ -8,23 +8,34 @@ import (
 
 type easyContext struct {
 	json      []byte
-	stack     []byte
+	bStack    []byte
+	vStack    []Easy_value
 	size, top int
 }
 
-func EasyContextPushChar(c *easyContext, b byte) {
-	c.stack = append(c.stack, b)
+func EasyContextBstackPush(c *easyContext, b byte) {
+	c.bStack = append(c.bStack, b)
 }
 
-func EasyContextPush(c *easyContext, size int) int {
-	ret := c.top
-	c.top += size
-	return ret
+func EasyContextBstackPop(c *easyContext) []byte {
+	result := c.bStack
+	c.bStack = c.bStack[:0:0]
+	return result
 }
 
-func EasyContextPop(c *easyContext) []byte {
-	result := c.stack
-	c.stack = c.stack[:0:0]
+//func EasyContextPush(c *easyContext, size int) int {
+//	ret := c.top
+//	c.top += size
+//	return ret
+//}
+
+func EasyContextVstackPush(c *easyContext, value Easy_value) {
+	c.vStack = append(c.vStack, value)
+}
+
+func EasyContextVstackPop(c *easyContext) []Easy_value {
+	result := c.vStack
+	c.vStack = c.vStack[:0:0]
 	return result
 }
 
@@ -62,6 +73,7 @@ func easyParseValue(c *easyContext, value *Easy_value) int {
 	if len(c.json) == 0 {
 		return EASY_PARSE_EXPECT_VALUE
 	}
+	//easyParseWhitespace(c)
 	switch c.json[0] {
 	case 'n':
 		return EasyParseLiteral(c, value, "null", EASY_NULL)
@@ -71,8 +83,51 @@ func easyParseValue(c *easyContext, value *Easy_value) int {
 		return EasyParseLiteral(c, value, "false", EASY_FALSE)
 	case '"':
 		return EasyParseString(c, value)
+	case '[':
+		return EasyParseArray(c, value)
 	default:
 		return EasyParseNum(c, value)
+	}
+}
+
+func EasyParseArray(c *easyContext, value *Easy_value) int {
+	c.json = c.json[1:]
+	easyParseWhitespace(c)
+
+	//TODO: 这里有可能出问题
+	if c.json[0] == ']' {
+		c.json = c.json[1:] //这里
+		value.vType = EASY_ARRAY
+		//value.e = nil //这里
+		return EASY_PARSE_OK
+	}
+	for {
+		easyParseWhitespace(c)
+		var v Easy_value
+		if result := easyParseValue(c, &v); result != EASY_PARSE_OK {
+			return result
+		}
+		//解析一个值成功则放入栈中，如果是c语言的话，只用一个数组实现栈就可以了，但是其他好像不太行（我试试）
+		//经过测试后确实不行，我觉得我不应该引入一个多余的栈
+		//EasyContextVstackPush(c, v)
+
+		value.e = append(value.e, v)
+		easyParseWhitespace(c)
+
+		if len(c.json) < 1 {
+			return EASY_PARSE_MISS_COMMA_OR_SQUARE_BRACKET
+		} else {
+			if c.json[0] == ',' {
+				c.json = c.json[1:]
+			} else if c.json[0] == ']' {
+				c.json = c.json[1:]
+				value.vType = EASY_ARRAY
+				//value.e = EasyContextVstackPop(c)
+				return EASY_PARSE_OK
+			} else {
+				return EASY_PARSE_MISS_COMMA_OR_SQUARE_BRACKET
+			}
+		}
 	}
 }
 
@@ -82,29 +137,29 @@ func EasyParseString(c *easyContext, value *Easy_value) int {
 	for i < len(c.json) {
 		switch c.json[i] {
 		case '"':
-			value.str = EasyContextPop(c)
-			c.json = c.json[len(c.json):]
+			value.str = EasyContextBstackPop(c)
+			c.json = c.json[i+1:]
 			value.vType = EASY_STRING
 			return EASY_PARSE_OK
 		case '\\':
 			i++
 			switch c.json[i] {
 			case '"':
-				EasyContextPushChar(c, '"')
+				EasyContextBstackPush(c, '"')
 			case '\\':
-				EasyContextPushChar(c, '\\')
+				EasyContextBstackPush(c, '\\')
 			case '/':
-				EasyContextPushChar(c, '/')
+				EasyContextBstackPush(c, '/')
 			case 'b':
-				EasyContextPushChar(c, '\b')
+				EasyContextBstackPush(c, '\b')
 			case 'f':
-				EasyContextPushChar(c, '\f')
+				EasyContextBstackPush(c, '\f')
 			case 'n':
-				EasyContextPushChar(c, '\n')
+				EasyContextBstackPush(c, '\n')
 			case 'r':
-				EasyContextPushChar(c, '\r')
+				EasyContextBstackPush(c, '\r')
 			case 't':
-				EasyContextPushChar(c, '\t')
+				EasyContextBstackPush(c, '\t')
 			case 'u':
 				ok, u := EasyParseHex4(c, i)
 				if !ok {
@@ -144,7 +199,7 @@ func EasyParseString(c *easyContext, value *Easy_value) int {
 			if c.json[i] < 0x20 {
 				return EASY_PARSE_INVALID_STRING_CHAR
 			}
-			EasyContextPushChar(c, c.json[i])
+			EasyContextBstackPush(c, c.json[i])
 		}
 		i++
 	}
@@ -153,19 +208,19 @@ func EasyParseString(c *easyContext, value *Easy_value) int {
 
 func EasyParseUtf8(c *easyContext, u int64) {
 	if u <= 0x7f {
-		EasyContextPushChar(c, byte(u))
+		EasyContextBstackPush(c, byte(u))
 	} else if u <= 0x7FF {
-		EasyContextPushChar(c, byte(0xc0|((u>>6)&0xff)))
-		EasyContextPushChar(c, byte(0x80|(u&0x3f)))
+		EasyContextBstackPush(c, byte(0xc0|((u>>6)&0xff)))
+		EasyContextBstackPush(c, byte(0x80|(u&0x3f)))
 	} else if u <= 0xFFFF {
-		EasyContextPushChar(c, byte(0xe0|((u>>12)&0xff)))
-		EasyContextPushChar(c, byte(0x80|((u>>6)&0x3f)))
-		EasyContextPushChar(c, byte(0x80|(u&0x3f)))
+		EasyContextBstackPush(c, byte(0xe0|((u>>12)&0xff)))
+		EasyContextBstackPush(c, byte(0x80|((u>>6)&0x3f)))
+		EasyContextBstackPush(c, byte(0x80|(u&0x3f)))
 	} else if u <= 0x10FFFF {
-		EasyContextPushChar(c, byte(0xf0|((u>>18)&0xff)))
-		EasyContextPushChar(c, byte(0x80|((u>>12)&0x3f)))
-		EasyContextPushChar(c, byte(0x80|((u>>6)&0x3f)))
-		EasyContextPushChar(c, byte(0x80|u&0x3f))
+		EasyContextBstackPush(c, byte(0xf0|((u>>18)&0xff)))
+		EasyContextBstackPush(c, byte(0x80|((u>>12)&0x3f)))
+		EasyContextBstackPush(c, byte(0x80|((u>>6)&0x3f)))
+		EasyContextBstackPush(c, byte(0x80|u&0x3f))
 	}
 }
 
@@ -180,7 +235,11 @@ func EasyParseHex4(c *easyContext, index int) (bool, int64) {
 
 func EasyParseNum(c *easyContext, value *Easy_value) int {
 	if c.json[0] == '0' {
-		if len(c.json) > 1 && !(c.json[1] == '.' || c.json[1] == 'e' || c.json[1] == 'E') {
+		//下面这个if判断是用来过滤0后面只能跟.eE三种字符，否则不表示数字，但是在解释数组的时候这样的判断出现了麻烦
+		//if len(c.json) > 1 && !(c.json[1] == '.' || c.json[1] == 'e' || c.json[1] == 'E') {
+		//	return EASY_PARSE_ROOT_NOT_SINGULAR
+		//}
+		if len(c.json) > 1 && (c.json[1] == 'x' || (c.json[1] >= '0' && c.json[1] <= '9')) {
 			return EASY_PARSE_ROOT_NOT_SINGULAR
 		}
 	}
@@ -189,7 +248,24 @@ func EasyParseNum(c *easyContext, value *Easy_value) int {
 		return EASY_PARSE_INVALID_VALUE
 	}
 
-	f, err := strconv.ParseFloat(string(c.json), 64)
+	//下面这段出问题，用","来划分数字的结束不靠谱，还是一个个数吧
+	////在把字节数组转为数字之前要判断后面是否有","，否则解析数组json串的时候会有问题
+	//index := strings.Index(string(c.json), ",")
+	//convStr := string(c.json)
+	//if index >= 0 && index <= len(c.json) {
+	//	convStr = string(c.json[0:index])
+	//}
+	//convStr = strings.TrimSpace(convStr)
+	index := 0
+	for index < len(c.json) {
+		if isDigit(c.json[index]) {
+			index++
+		} else {
+			break
+		}
+	}
+	convStr := string(c.json[0:index])
+	f, err := strconv.ParseFloat(convStr, 64)
 	if err != nil {
 		//todo 错误判断处理是否有更好的方法
 		if strings.Contains(err.Error(), strconv.ErrRange.Error()) {
@@ -197,10 +273,18 @@ func EasyParseNum(c *easyContext, value *Easy_value) int {
 		}
 		return EASY_PARSE_INVALID_VALUE
 	}
-	c.json = c.json[len(c.json):]
+	c.json = c.json[len(convStr):]
 	value.num = f
 	value.vType = EASY_NUMBER
 	return EASY_PARSE_OK
+}
+
+func isDigit(b byte) bool {
+	if (b >= '0' && b <= '9') || b == 'e' || b == 'E' || b == '-' || b == '+' || b == '.' {
+		return true
+	} else {
+		return false
+	}
 }
 
 func startWithLetter(b byte) bool {
