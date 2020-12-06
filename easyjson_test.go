@@ -9,27 +9,6 @@ var mainRet = 0
 var testCount = 0
 var testPass = 0
 
-func expectEQ(equality bool, expect interface{}, actual interface{}, format string) {
-	testCount++
-	if equality {
-		testPass++
-	} else {
-		log.Printf("expect: "+format+", actual: "+format+"\n", expect, actual)
-	}
-}
-
-func expectEQInt(expect int, actual int) {
-	expectEQ(expect == actual, expect, actual, "%d")
-}
-
-func expectEQFloat(expect float64, actual float64) {
-	expectEQ(expect == actual, expect, actual, "%f")
-}
-
-func expectEQString(expect string, actual string) {
-	expectEQ(expect == actual, expect, actual, "%s")
-}
-
 //----- 测试对象 -----
 
 func TestParseObject(t *testing.T) {
@@ -248,6 +227,83 @@ func TestParseRootNotSingular(t *testing.T) {
 	ParseExpectValue(EASY_PARSE_ROOT_NOT_SINGULAR, "0x123", EASY_NULL)
 }
 
+/*----- 测试生成器 -----*/
+
+func TestEasyStringifyValue(t *testing.T) {
+	testRoundTrip("null")
+	testRoundTrip("true")
+	testRoundTrip("false")
+}
+
+func TestEasyStringifyNumber(t *testing.T) {
+	testRoundTrip("0")
+	testRoundTrip("-0")
+	testRoundTrip("1")
+	testRoundTrip("-1")
+	testRoundTrip("1.5")
+	testRoundTrip("-1.5")
+	testRoundTrip("3.25")
+	testRoundTrip("1e+20")
+	testRoundTrip("1.234e+20")
+	testRoundTrip("1.234e-20")
+	testRoundTrip("1.0000000000000002")      /* the smallest number > 1 */
+	testRoundTrip("4.9406564584124654e-324") /* minimum denormal */
+	testRoundTrip("-4.9406564584124654e-324")
+	testRoundTrip("2.2250738585072009e-308") /* Max subnormal double */
+	testRoundTrip("-2.2250738585072009e-308")
+	testRoundTrip("2.2250738585072014e-308") /* Min normal positive double */
+	testRoundTrip("-2.2250738585072014e-308")
+	testRoundTrip("1.7976931348623157e+308") /* Max double */
+	testRoundTrip("-1.7976931348623157e+308")
+}
+
+func TestStringifyString(t *testing.T) {
+	testRoundTrip("\"\"")
+	testRoundTrip("\"Hello\"")
+	testRoundTrip("\"Hello\\nWorld\"")
+	testRoundTrip("\"\\\" \\\\ / \\b \\f \\n \\r \\t\"")
+	testRoundTrip("\"Hello\\u0000World\"")
+}
+
+func TestStringifyArray(t *testing.T) {
+	testRoundTrip("[]")
+	testRoundTrip("[null,false,true,123,\"abc\",[1,2,3]]")
+}
+
+func TestStringifyObject(t *testing.T) {
+	testRoundTrip("{}")
+	testRoundTrip("{\"n\":null,\"f\":false,\"t\":true,\"i\":123,\"s\":\"abc\",\"a\":[1,2,3],\"o\":{\"1\":1,\"2\":2,\"3\":3}}")
+
+}
+
+func testRoundTrip(json string) {
+	var v EasyValue
+	expectEQInt(EASY_PARSE_OK, EasyParse(&v, json))
+	json2 := EasyStringify(&v)
+	expectEQString(json, json2)
+}
+
+func expectEQ(equality bool, expect interface{}, actual interface{}, format string) {
+	testCount++
+	if equality {
+		testPass++
+	} else {
+		log.Printf("expect: "+format+", actual: "+format+"\n", expect, actual)
+	}
+}
+
+func expectEQInt(expect int, actual int) {
+	expectEQ(expect == actual, expect, actual, "%d")
+}
+
+func expectEQFloat(expect float64, actual float64) {
+	expectEQ(expect == actual, expect, actual, "%f")
+}
+
+func expectEQString(expect string, actual string) {
+	expectEQ(expect == actual, expect, actual, "%s")
+}
+
 func ParseExpectValue(parseCode int, value string, valueType int) {
 	var v EasyValue
 	v.vType = EASY_FALSE
@@ -255,6 +311,7 @@ func ParseExpectValue(parseCode int, value string, valueType int) {
 	expectEQInt(valueType, EasyGetType(&v))
 }
 
-func TestAll(t *testing.T) {
-	log.Printf("%d/%d (%f%%) passed, fail: %d\n", testPass, testCount, float32(testPass*100.0/testCount), testCount-testPass)
+func TestInfo(t *testing.T) {
+	log.Printf("%d/%d (%f%%) passed, fail: %d\n",
+		testPass, testCount, float32(testPass*100.0/testCount), testCount-testPass)
 }

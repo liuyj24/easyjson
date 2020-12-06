@@ -1,16 +1,13 @@
 package main
 
 import (
-	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 )
 
 type easyContext struct {
-	json      []byte
-	bStack    []byte
-	vStack    []EasyValue
-	size, top int
+	json []byte
 }
 
 func EasyParse(value *EasyValue, json string) int {
@@ -355,19 +352,93 @@ func EasyGetType(value *EasyValue) int {
 	return value.vType
 }
 
-func EasyGetNum(value *EasyValue) (float64, error) {
-	if value != nil && value.vType == EASY_NUMBER {
-		return value.num, nil
-	} else {
-		return 0, errors.New("couldn't get the num")
+/* ===== 生成器 ===== */
+func EasyStringify(value *EasyValue) string {
+	var c easyContext
+	EasyStringifyValue(&c, value)
+	return string(c.json)
+}
+
+func EasyStringifyValue(c *easyContext, value *EasyValue) {
+	c.json = getByteSliceJudgeByType(value)
+}
+
+func stringifyObject(value *EasyValue) []byte {
+	var result []byte
+	result = append(result, '{')
+	for i, o := range value.o {
+		result = append(result, stringifyString([]byte(o.key))...)
+		result = append(result, ':')
+		result = append(result, getByteSliceJudgeByType(&o.value)...)
+		if i != len(value.o)-1 {
+			result = append(result, ',')
+		}
 	}
+	result = append(result, '}')
+	return result
 }
 
-func EasySetString(value *EasyValue, str []byte) {
-	value.str = str
-	value.vType = EASY_STRING
+func stringifyArray(value *EasyValue) []byte {
+	var result []byte
+	result = append(result, '[')
+	for i, v := range value.e {
+		result = append(result, getByteSliceJudgeByType(&v)...)
+		if i != len(value.e)-1 {
+			result = append(result, ',')
+		}
+	}
+	result = append(result, ']')
+	return result
 }
 
-func EasyFree(value *EasyValue) {
-	value.vType = EASY_NULL
+func getByteSliceJudgeByType(value *EasyValue) []byte {
+	var result []byte
+	switch value.vType {
+	case EASY_NULL:
+		result = append(result, "null"...)
+	case EASY_FALSE:
+		result = append(result, "false"...)
+	case EASY_TRUE:
+		result = append(result, "true"...)
+	case EASY_NUMBER:
+		result = append(result, []byte(fmt.Sprintf("%.17g", value.num))...)
+	case EASY_STRING:
+		result = append(result, stringifyString(value.str)...)
+	case EASY_ARRAY:
+		result = append(result, stringifyArray(value)...)
+	case EASY_OBJECT:
+		result = append(result, stringifyObject(value)...)
+	}
+	return result
+}
+
+func stringifyString(str []byte) []byte {
+	var result []byte
+	result = append(result, '"')
+	for _, b := range str {
+		switch b {
+		case '"':
+			result = append(result, '\\', '"')
+		case '\\':
+			result = append(result, '\\', '\\')
+		case '\n':
+			result = append(result, '\\', 'n')
+		case '\b':
+			result = append(result, '\\', 'b')
+		case '\f':
+			result = append(result, '\\', 'f')
+		case '\r':
+			result = append(result, '\\', 'r')
+		case '\t':
+			result = append(result, '\\', 't')
+		default:
+			if b < 0x20 {
+				result = append(result, fmt.Sprintf("\\u%04X", b)...)
+			} else {
+				result = append(result, b)
+			}
+		}
+	}
+	result = append(result, '"')
+	return result
 }
