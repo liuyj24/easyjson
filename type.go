@@ -12,12 +12,18 @@ const (
 )
 
 //json树的节点
-type Easy_value struct {
+type EasyValue struct {
 	vType int
 	num   float64
 	str   []byte
 	len   int
-	e     []Easy_value
+	e     []EasyValue
+	o     []EasyObj
+}
+
+type EasyObj struct {
+	key   string
+	value EasyValue
 }
 
 //解析后的返回值
@@ -33,4 +39,7 @@ const (
 	EASY_PARSE_INVALID_UNICODE_HEX
 	EASY_PARSE_INVALID_UNICODE_SURROGATE
 	EASY_PARSE_MISS_COMMA_OR_SQUARE_BRACKET
+	EASY_PARSE_MISS_KEY
+	EASY_PARSE_MISS_COLON
+	EASY_PARSE_MISS_COMMA_OR_CURLY_BRACKET
 )

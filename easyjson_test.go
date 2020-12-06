@@ -30,10 +30,61 @@ func expectEQString(expect string, actual string) {
 	expectEQ(expect == actual, expect, actual, "%s")
 }
 
+//----- 测试对象 -----
+
+func TestParseObject(t *testing.T) {
+	var e EasyValue
+	expectEQInt(EASY_PARSE_OK, EasyParse(&e, " { } "))
+	expectEQInt(EASY_OBJECT, e.vType)
+
+	var v EasyValue
+	expectEQInt(EASY_PARSE_OK, EasyParse(&v,
+		" { "+
+			"\"n\" : null , "+
+			"\"f\" : false , "+
+			"\"t\" : true , "+
+			"\"i\" : 123 , "+
+			"\"s\" : \"abc\", "+
+			"\"a\" : [ 1, 2, 3 ],"+
+			"\"o\" : { \"1\" : 1, \"2\" : 2, \"3\" : 3 }"+
+			" } "))
+	expectEQInt(EASY_OBJECT, v.vType)
+	expectEQInt(EASY_NULL, v.o[0].value.vType)
+	expectEQInt(EASY_FALSE, v.o[1].value.vType)
+	expectEQString("t", v.o[2].key)
+	expectEQString("i", v.o[3].key)
+	expectEQString("abc", string(v.o[4].value.str))
+	expectEQInt(3, len(v.o[5].value.e))
+	expectEQInt(3, len(v.o[6].value.o))
+}
+
+func TestMissKey(t *testing.T) {
+	ParseExpectValue(EASY_PARSE_MISS_KEY, "{:1,", EASY_NULL)
+	ParseExpectValue(EASY_PARSE_MISS_KEY, "{1:1,", EASY_NULL)
+	ParseExpectValue(EASY_PARSE_MISS_KEY, "{true:1,", EASY_NULL)
+	ParseExpectValue(EASY_PARSE_MISS_KEY, "{false:1,", EASY_NULL)
+	ParseExpectValue(EASY_PARSE_MISS_KEY, "{null:1,", EASY_NULL)
+	ParseExpectValue(EASY_PARSE_MISS_KEY, "{[]:1,", EASY_NULL)
+	ParseExpectValue(EASY_PARSE_MISS_KEY, "{{}:1,", EASY_NULL)
+	ParseExpectValue(EASY_PARSE_MISS_KEY, "{\"a\":1,", EASY_NULL)
+}
+
+func TestParseMissColon(t *testing.T) {
+	ParseExpectValue(EASY_PARSE_MISS_COLON, "{\"a\"}", EASY_NULL)
+	ParseExpectValue(EASY_PARSE_MISS_COLON, "{\"a\",\"b\"}", EASY_NULL)
+}
+
+func TestParseMissCommaOrCurlyBracket(t *testing.T) {
+	ParseExpectValue(EASY_PARSE_MISS_COMMA_OR_CURLY_BRACKET, "{\"a\":1", EASY_NULL)
+	ParseExpectValue(EASY_PARSE_MISS_COMMA_OR_CURLY_BRACKET, "{\"a\":1]", EASY_NULL)
+	ParseExpectValue(EASY_PARSE_MISS_COMMA_OR_CURLY_BRACKET, "{\"a\":1 \"b\"", EASY_NULL)
+	ParseExpectValue(EASY_PARSE_MISS_COMMA_OR_CURLY_BRACKET, "{\"a\":{}", EASY_NULL)
+}
+
 //----- 测试数组 -----
 
 func TestParseArray(t *testing.T) {
-	var v Easy_value
+	var v EasyValue
 	expectEQInt(EASY_PARSE_OK, EasyParse(&v, "[ null , false , true , 123 , \"abc\" ]"))
 	expectEQInt(EASY_ARRAY, v.vType)
 	expectEQInt(EASY_NULL, v.e[0].vType)
@@ -42,10 +93,11 @@ func TestParseArray(t *testing.T) {
 	expectEQInt(EASY_NUMBER, v.e[3].vType)
 	expectEQString("abc", string(v.e[4].str))
 
-	var v2 Easy_value
+	var v2 EasyValue
 	expectEQInt(EASY_PARSE_OK, EasyParse(&v2, "[ [ ] , [ 0 ] , [ 0 , 1 ] , [ 0 , 1 , 2 ] ]"))
 	expectEQInt(EASY_ARRAY, v2.e[0].vType)
 	expectEQInt(3, len(v2.e[3].e))
+	expectEQInt(2, int(v2.e[3].e[2].num))
 }
 
 func TestParseMissCommaOrSquareBracket(t *testing.T) {
@@ -110,7 +162,7 @@ func TestParseInvalidUnicodeSurrogate(t *testing.T) {
 }
 
 func testString(expect string, json string) {
-	var v Easy_value
+	var v EasyValue
 	expectEQInt(EASY_PARSE_OK, EasyParse(&v, json))
 	expectEQInt(EASY_STRING, EasyGetType(&v))
 	expectEQString(expect, string(v.str))
@@ -149,7 +201,7 @@ func TestParseNumToBig(t *testing.T) {
 }
 
 func testNumber(num float64, json string) {
-	var v Easy_value
+	var v EasyValue
 	expectEQInt(EASY_PARSE_OK, EasyParse(&v, json))
 	expectEQInt(EASY_NUMBER, EasyGetType(&v))
 	expectEQFloat(num, v.num)
@@ -197,7 +249,7 @@ func TestParseRootNotSingular(t *testing.T) {
 }
 
 func ParseExpectValue(parseCode int, value string, valueType int) {
-	var v Easy_value
+	var v EasyValue
 	v.vType = EASY_FALSE
 	expectEQInt(parseCode, EasyParse(&v, value))
 	expectEQInt(valueType, EasyGetType(&v))
