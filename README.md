@@ -3,5 +3,5 @@
 
 学习心得：[链接](https://www.cnblogs.com/tanshaoshenghao/p/14100735.html) 
 
-![哦？从"{"开始，看来是个对象了！](https://mmbiz.qpic.cn/mmbiz_png/4Kicia369ptWGnwyBS6byzsaibkTuvBG6lYJKXfp7jhicjUiby1WoBswWLvAvAldDwmia0zvlAVfgOUT3wk6u1DLyVOQ/0?wx_fmt=png)
+![哦？从"{"开始，看来是个对象了！](https://images.cnblogs.com/cnblogs_com/tanshaoshenghao/1910827/o_210106095756%E5%BE%AE%E4%BF%A1%E6%B0%B4%E5%8D%B0.png)
 
